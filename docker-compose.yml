@@ -2,18 +2,65 @@ version: "3.8"
 
 services:
   generator:
-    image: golang:1.17-alpine
+    image: golang:latest
+    container_name: generator
     working_dir: /app
     command: ["go", "run", "internal/cmd/generator/main.go"]
     volumes:
       - ".:/app"
-    profiles:
-      - manual
+    depends_on:
+      - database
+    networks:
+      - app-network
 
   database:
+    container_name: postgres
     image: postgres:14-alpine
     environment:
       - POSTGRES_USER=casino
       - POSTGRES_PASSWORD=casino
     volumes:
       - "./db:/db"
+    networks:
+      - app-network
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: "rabbitmq:management"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    ports:
+      - "15672:15672"  # RabbitMQ Management Plugin (HTTP)
+      - "5672:5672"    # RabbitMQ AMQP protocol
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  redis:
+    container_name: redis
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "8080:80"  # pgAdmin web UI on port 8080
+    networks:
+      - app-network
+    depends_on:
+      - database
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis-data:
